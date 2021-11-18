@@ -370,10 +370,28 @@ void StartDefaultTask(void *argument)
   /* init code for USB_DEVICE */
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 5 */
+  if (HAL_CAN_Start(&hcan2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+
+  CAN_TxHeaderTypeDef canHeader;
+  canHeader.StdId = 0x123;
+  canHeader.ExtId = 0;
+  canHeader.IDE = CAN_ID_STD;
+  canHeader.RTR = CAN_RTR_DATA;
+  canHeader.DLC = 8;  //8 Bytes length
+
+
+  uint8_t txData[] = {1,2,3,4,5,6,7,8};
+
+
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+    osDelay(100);
+    HAL_CAN_AddTxMessage(&hcan2, &canHeader, txData, 0 );
   }
   /* USER CODE END 5 */
 }
