@@ -25,7 +25,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "can.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -356,83 +356,6 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
-
-void HAL_CAN_TxMailbox0CompleteCallback(CAN_HandleTypeDef *hcan)
-{
-
-}
-
-void HAL_CAN_TxMailbox1CompleteCallback(CAN_HandleTypeDef *hcan)
-{
-
-}
-
-void HAL_CAN_TxMailbox2CompleteCallback(CAN_HandleTypeDef *hcan)
-{
-
-}
-
-void HAL_CAN_TxMailbox0AbortCallback(CAN_HandleTypeDef *hcan)
-{
-
-}
-
-void HAL_CAN_TxMailbox1AbortCallback(CAN_HandleTypeDef *hcan)
-{
-
-}
-
-void HAL_CAN_TxMailbox2AbortCallback(CAN_HandleTypeDef *hcan)
-{
-
-}
-
-
-
-CAN_TxHeaderTypeDef rxfifo0_header;
-uint8_t rxfifo0_rxData[8];
-uint32_t rxfifo0 = 0;
-void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
-{
-  rxfifo0++;
-  HAL_CAN_GetRxMessage(&hcan2, 0, &rxfifo0_header, &rxfifo0_rxData);
-}
-
-void HAL_CAN_RxFifo0FullCallback(CAN_HandleTypeDef *hcan)
-{
-
-}
-
-CAN_TxHeaderTypeDef rxfifo1_header;
-uint8_t rxfifo1_rxData[8];
-uint32_t rxfifo1 = 0;
-void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan)
-{
-  rxfifo1++;
-  HAL_CAN_GetRxMessage(&hcan2, 1, &rxfifo1_header, &rxfifo1_rxData);
-}
-
-void HAL_CAN_RxFifo1FullCallback(CAN_HandleTypeDef *hcan)
-{
-
-}
-
-void HAL_CAN_SleepCallback(CAN_HandleTypeDef *hcan)
-{
-
-}
-
-void HAL_CAN_WakeUpFromRxMsgCallback(CAN_HandleTypeDef *hcan)
-{
-
-}
-
-void HAL_CAN_ErrorCallback(CAN_HandleTypeDef *hcan)
-{
-
-}
-
-
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -448,52 +371,39 @@ void StartDefaultTask(void *argument)
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 5 */
 
-  /*Receive all messages on fifo 0, do not filter yet*/
-  CAN_FilterTypeDef sFilterConfig;
-  sFilterConfig.FilterIdHigh = 0xFFFF;
-  sFilterConfig.FilterIdLow = 0x0000;
-  sFilterConfig.FilterMaskIdHigh = 0xFFFF;
-  sFilterConfig.FilterMaskIdLow = 0x0000;
-  sFilterConfig.FilterFIFOAssignment = 0;
-  sFilterConfig.FilterBank = 0;
-  sFilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
-  sFilterConfig.FilterScale = CAN_FILTERSCALE_16BIT;
-  sFilterConfig.FilterActivation = CAN_FILTER_ENABLE;
-  sFilterConfig.SlaveStartFilterBank = 0;
+  CAN_Init(&hcan2);
 
+  Can_Frame can_frame_tx;
+  can_frame_tx.id = 0x123;
+  can_frame_tx.length = 8;
 
-  if (HAL_CAN_ConfigFilter(&hcan2, &sFilterConfig)!= HAL_OK)
-  {
-    Error_Handler();
-  }
+  for (int i  = 0; i < can_frame_tx.length; i++)
+    {
+      can_frame_tx.data[i] = i;
+    }
 
-  if (HAL_CAN_ActivateNotification(&hcan2, CAN_IT_TX_MAILBOX_EMPTY|CAN_IT_RX_FIFO0_MSG_PENDING)!= HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  if (HAL_CAN_Start(&hcan2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-
-  CAN_TxHeaderTypeDef canHeader;
-  canHeader.StdId = 0x123;
-  canHeader.ExtId = 0;
-  canHeader.IDE = CAN_ID_STD;
-  canHeader.RTR = CAN_RTR_DATA;
-  canHeader.DLC = 8;  //8 Bytes length
-
-
-  uint8_t txData[] = {1,2,3,4,5,6,7,8};
-
+  Can_Frame can_frame_rx;
+  uint32_t rx_cnt = 0, tx_cnt = 0, tx_error_cnt = 0;
 
   /* Infinite loop */
   for(;;)
   {
     osDelay(100);
-    HAL_CAN_AddTxMessage(&hcan2, &canHeader, txData, 0 );
+    if (HAL_OK == CAN_Receive(&hcan2, &can_frame_rx))
+      {
+	/*Received something*/
+	rx_cnt++;
+      }
+    if (HAL_OK == CAN_Send(&hcan2, &can_frame_tx))
+      {
+	/*Successfully posted to tx fifo buffer*/
+	tx_cnt++;
+      }
+    else
+      {
+	/* Fifo buffer full, is there a receiving CAN node?*/
+	tx_error_cnt++;
+      }
   }
   /* USER CODE END 5 */
 }
